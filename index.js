@@ -2,8 +2,8 @@
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import { MongoClient, ServerApiVersion } from 'mongodb';
-
 // config setup
 dotenv.config();
 
@@ -43,6 +43,110 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
 
+        // collection and db name
+        const userCollections = client.db('HouseHunter').collection('Users');
+        const houseCollections = client.db('HouseHunter').collection('Houses');
+
+        // json web token
+        app.post('/jwt', (req, res) => {
+            try {
+                const user = req.body;
+                const token = jwt.sign(user, process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
+                res.json({ token });
+            } catch (error) {
+                console.log(error);
+            }
+        });
+
+        // verify admin
+        const verifyOwner = async (req, res, next) => {
+            try {
+                const { email } = req.user;
+                const user = await userCollections.findOne({ email });
+                if (user?.role !== 'owner') {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Forbidden Access!!',
+                    });
+                }
+                next();
+            } catch (error) {
+                res.status(200).json({
+                    success: false,
+                    message: 'Internal Server Error',
+                    error: error.message,
+                });
+            }
+        };
+
+        // verify students
+        const verifyRenter = async (req, res, next) => {
+            try {
+                const { email } = req.user;
+                const user = await userCollections.findOne({ email });
+                if (user?.role !== 'renter') {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Forbidden Access!!',
+                    });
+                }
+                next();
+            } catch (error) {
+                res.status(200).json({
+                    success: false,
+                    message: 'Internal Server Error',
+                    error: error.message,
+                });
+            }
+        };
+
+        // user registration
+        // register user
+        app.post('/user', async (req, res) => {
+            try {
+                const { email } = req.body;
+                const isExistUser = await userCollections.findOne({ email });
+                if (isExistUser) {
+                    return res.send({ message: 'Email is Already Exists!!' });
+                }
+
+                const user = await userCollections.insertOne({ ...req.body });
+                res.status(200).json({
+                    success: true,
+                    message: 'Successfully added!!',
+                    data: user,
+                });
+            } catch (error) {
+                res.status(200).json({
+                    success: false,
+                    message: 'Internal Server error from User POST Request!!',
+                });
+            }
+        });
+
+        // login user
+        app.post('/login', async (req, res) => {
+            try {
+                const { email, password } = req.body;
+                console.log(email, password);
+                const isExistUser = await userCollections.findOne({ email });
+                if (!isExistUser || isExistUser.password !== password) {
+                    return res.status(401).json({
+                        success: false,
+                        message: 'Unauthorized Access',
+                    });
+                }
+                res.status(200).json({
+                    success: true,
+                    message: 'Successfully LoggedIn',
+                });
+            } catch (error) {
+                res.status(200).json({
+                    success: false,
+                    message: 'Internal Server error from User Login Request!!',
+                });
+            }
+        });
         // Send a ping to confirm a successful connection
         await client.db('admin').command({ ping: 1 });
         console.log('Pinged your deployment. You successfully connected to MongoDB!');
