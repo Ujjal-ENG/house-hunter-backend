@@ -1,3 +1,4 @@
+/* eslint-disable import/extensions */
 /* eslint-disable no-tabs */
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -101,6 +102,22 @@ async function run() {
         };
 
         // user registration
+        // get all users
+        app.get('/users', async (req, res) => {
+            try {
+                const user = await userCollections.find().toArray();
+                res.status(200).json({
+                    success: true,
+                    message: 'All users data',
+                    data: user,
+                });
+            } catch (error) {
+                res.status(200).json({
+                    success: false,
+                    message: 'Internal Server error from User POST Request!!',
+                });
+            }
+        });
         // register user
         app.post('/user', async (req, res) => {
             try {
@@ -139,6 +156,7 @@ async function run() {
                 res.status(200).json({
                     success: true,
                     message: 'Successfully LoggedIn',
+                    data: isExistUser,
                 });
             } catch (error) {
                 res.status(200).json({
@@ -147,6 +165,7 @@ async function run() {
                 });
             }
         });
+        
         // Send a ping to confirm a successful connection
         await client.db('admin').command({ ping: 1 });
         console.log('Pinged your deployment. You successfully connected to MongoDB!');
